@@ -1,27 +1,56 @@
 
 import numpy as np
 
+# Base class showing what must be implemented for all layers
+class Layer():
+    def __init__(self):
+        # Allowing for a linked list type of structure for the network
+        self.prev_layer = None
+        self.next_layer = None
+
+        # Must be specified for all layers
+        self.output_shape = None
+
+        # Save output of all layers; needed for backward pass
+        self.output = None
+
+    def forward(self, X):
+        pass
+
+    def backward(self, output_derivative):
+        pass
+
+    def __str__(self):
+        pass
+
+# Subclass specifying the derivatives with respect to weights and biases
+# of computational layers.
+class ComputationalLayer(Layer):
+    def __init__(self):
+        super().__init__()
+
+        self.dW = None
+        self.db = None
+
 # -------------------------------- Computational layers ------------------------
-class DenseLayer():
+class DenseLayer(ComputationalLayer):
     def __init__(self, in_features, n_nodes):
+        super().__init__()
+
         self.in_features = in_features
         self.n_nodes = n_nodes
         self.output_shape = [n_nodes,]
-        self.prev_layer = None
-        self.next_layer = None
 
         # See https://towardsdatascience.com/weight-initialization-in-neural-networks-a-journey-from-the-basics-to-kaiming-954fb9b47c79
         # for explaination of initialization scheme of weights.
         self.W = np.random.normal(size=(in_features, n_nodes))*np.sqrt(2/in_features) 
         self.b = np.zeros((1, n_nodes))
-        self.dW = None
-        self.db = None
-        self.input = None
-        self.output = None
-        self.derivative = None
 
     def forward(self, X):
-        self.input = X
+        # Save input if first layer
+        if self.prev_layer == None:
+            self.input = X
+
         self.output = X @ self.W + self.b
 
         if self.next_layer != None:
@@ -30,12 +59,17 @@ class DenseLayer():
     def backward(self, output_derivative):
         n,_ = output_derivative.shape
         
+        if self.prev_layer == None:
+            input_ = self.input
+        else:
+            input_ = self.prev_layer.output
+        
         self.db = np.sum(output_derivative, axis=0) / n
-        self.dW = (self.input.T @ output_derivative) / n
+        self.dW = (input_.T @ output_derivative) / n
 
         if self.prev_layer != None:
-            self.derivative = output_derivative @ self.W.T
-            self.prev_layer.backward(self.derivative)
+            derivative = output_derivative @ self.W.T
+            self.prev_layer.backward(derivative)
 
     def __str__(self):
         return "{:<30}{:<20}{:<20}{:<10} \n".format(
@@ -45,18 +79,17 @@ class DenseLayer():
             self.W.size + self.b.size
         )
 
-class ConvolutionalLayer(): 
+class ConvolutionalLayer(ComputationalLayer): 
     # Implementation is based on: https://towardsdatascience.com/convolutional-neural-networks-from-the-ground-up-c67bb41454e1
 
     def __init__(self, n_filters, filter_size=3, stride=1, input_shape=(1,28,28)): # in_shape, 
+        super().__init__()
+
         c,h,w = input_shape
 
         self.n_filters = n_filters
         self.filter_size = filter_size
         self.stride = stride
-
-        self.prev_layer = None
-        self.next_layer = None
 
         self.W = np.random.normal(size=(
             n_filters, 
@@ -65,13 +98,6 @@ class ConvolutionalLayer():
             filter_size
         ))*np.sqrt(2/(n_filters*c*filter_size**2)) # Correct initialization?
         self.b = np.zeros((n_filters))
-
-        self.dW = None
-        self.db = None
-        self.derivative = None
-
-        self.input = None
-        self.output = None
 
         output_w = (w - filter_size)//stride + 1
         output_h = (h - filter_size)//stride + 1
@@ -88,8 +114,11 @@ class ConvolutionalLayer():
             image_batch = image_batch.reshape((n,c,h,w))
         else:
             raise Exception("Unknown dimension of image batch.")
+        
+        # Save input if first layer
+        if self.prev_layer == None:
+            self.input = image_batch
 
-        self.input = image_batch
         n, c, h, w = image_batch.shape
 
         _, output_w, output_h = self.output_shape
@@ -119,13 +148,18 @@ class ConvolutionalLayer():
             self.next_layer.forward(self.output)
         
     def backward(self, output_derivative):
-        (n,c,h,w) = self.input.shape
-        
+
+        if self.prev_layer == None:
+            input_ = self.input
+        else:
+            input_ = self.prev_layer.output
+
+        (n,c,h,w) = input_.shape
         
         # Initialize derivative matrices
         self.dW = np.zeros(self.W.shape)
         self.db = np.zeros(self.b.shape)
-        self.derivative = np.zeros(self.input.shape)
+        derivative = np.zeros(input_.shape)
 
         # Loop
         f = self.filter_size
@@ -138,7 +172,7 @@ class ConvolutionalLayer():
                 output_derivative_term = output_derivative[:, :, out_y, out_x].reshape(
                     (n,self.n_filters,1,1)
                 )
-                input_term = self.input[:,:,curr_y:curr_y + f, curr_x: curr_x + f] # Shape (N x C x F x F)
+                input_term = input_[:,:,curr_y:curr_y + f, curr_x: curr_x + f] # Shape (N x C x F x F)
                 mean_dW_term = np.mean(
                     output_derivative_term[:,:,None]*input_term[:,None,:,:,:]
                 ,axis=0) # Shape (N_Filters x C x K x K)
@@ -146,7 +180,7 @@ class ConvolutionalLayer():
                 self.dW += mean_dW_term
                 
                 # Update derivative of input 
-                self.derivative[:, :, curr_y:curr_y + f, curr_x:curr_x + f] += np.sum(
+                derivative[:, :, curr_y:curr_y + f, curr_x:curr_x + f] += np.sum(
                     output_derivative_term[:,:,None,:,:] * self.W[None, :,:,:,:]
                 , axis=1) # Sum over all filters in W
                 curr_x += self.stride
@@ -157,7 +191,7 @@ class ConvolutionalLayer():
         self.db = np.mean(np.sum(output_derivative, axis=(2,3)), axis=0)
         
         if self.prev_layer != None:
-            self.prev_layer.backward(self.derivative)
+            self.prev_layer.backward(derivative)
     
     def __str__(self):
         return "{:<30}{:<20}{:<20}{:<10} \n".format(
@@ -170,12 +204,9 @@ class ConvolutionalLayer():
 
 
 # -------------------------------- Activations ---------------------------------
-class ReLU():
+class ReLU(Layer):
     def __init__(self, output_shape):
-        self.prev_layer = None
-        self.next_layer = None
-        self.output = None
-        self.derivative = None
+        super().__init__()
         self.output_shape = output_shape
 
     def forward(self, X):
@@ -187,11 +218,11 @@ class ReLU():
             self.next_layer.forward(self.output)
 
     def backward(self, output_derivative):
-        self.derivative = output_derivative.copy()
-        self.derivative[self.output == 0] = 0
+        derivative = output_derivative.copy()
+        derivative[self.output == 0] = 0
 
         if self.prev_layer != None:
-            self.prev_layer.backward(self.derivative)
+            self.prev_layer.backward(derivative)
 
     def __str__(self):
         return "{:<30}{:<20}{:<20}{:<10}\n".format(
@@ -201,13 +232,10 @@ class ReLU():
             "0"
         )
 
-class Softmax():
+class Softmax(Layer):
     # Mathematical derivation found at: https://aimatters.wordpress.com/2019/06/17/the-softmax-function-derivative/
     def __init__(self, output_shape):
-        self.prev_layer = None
-        self.next_layer = None
-        self.output = None
-        self.derivative = None
+        super().__init__()
         self.output_shape = output_shape
 
     def forward(self,  X):
@@ -234,10 +262,10 @@ class Softmax():
         outer_matrix_summed = np.sum(outer_matrix, axis=2)
         
         # Derivative of loss with respect to input
-        self.derivative = out_and_out_grad - outer_matrix_summed
+        derivative = out_and_out_grad - outer_matrix_summed
 
         if self.prev_layer != None:
-            self.prev_layer.backward(self.derivative)
+            self.prev_layer.backward(derivative)
 
     def __str__(self):
         return "{:<30}{:<20}{:<20}{:<10}\n".format(
@@ -250,12 +278,10 @@ class Softmax():
 
 # -------------------------------- Other layers --------------------------------
 
-class Dropout():
+class Dropout(Layer):
     def __init__(self, output_shape, dropout_rate=0.5):
-        self.prev_layer = None
-        self.next_layer = None
-        self.output = None
-        self.derivative = None
+        super().__init__()
+        
         self.random_matrix = None
         self.predict = False
 
@@ -281,10 +307,10 @@ class Dropout():
             self.next_layer.forward(self.output)
         
     def backward(self, output_derivative):
-        self.derivative = self.random_matrix * output_derivative 
+        derivative = self.random_matrix * output_derivative 
 
         if self.prev_layer != None:
-            self.prev_layer.backward(self.derivative)
+            self.prev_layer.backward(derivative)
 
     def __str__(self):
         return "{:<30}{:<20}{:<20}{:<10}\n".format(
@@ -294,11 +320,9 @@ class Dropout():
             "0"
         )
 
-class Flatten():
+class Flatten(Layer):
     def __init__(self, input_shape):
-        self.prev_layer = None
-        self.next_layer = None
-        self.input_shape = None
+        super().__init__()
 
         (c,h,w) = input_shape
         self.input_shape = input_shape
@@ -307,10 +331,10 @@ class Flatten():
     def forward(self, X):
         (n,c,h,w) = X.shape
         self.input_shape = (n,c,h,w)
-        output = X.reshape((n, c*h*w))
+        self.output = X.reshape((n, c*h*w))
 
         if self.next_layer != None:
-            self.next_layer.forward(output)
+            self.next_layer.forward(self.output)
     
     def backward(self, output_derivative):
         derivative = output_derivative.reshape(self.input_shape)
@@ -525,3 +549,4 @@ if __name__ == "__main__":
         print("Time for backward pass:               {:0.8f}".format(backward_runtime)) 
     else:
         print("Unknown test case. Quitting...")
+        

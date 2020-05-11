@@ -1,17 +1,19 @@
 from NeuralNetworkLayers import *
+from NeuralNetworkOptimizers import *
 
 class NeuralNetwork():
-    def __init__(self, input_shape, n_classes, maxEpochs=10, loss="cross_entropy", learning_rate=1e0):
+    def __init__(self, input_shape, n_output_nodes, loss="cross_entropy", verbose=False):
         # General params
-        self.input_shape = input_shape
-        self.n_classes = n_classes
-        self.layers = []
-        self.maxEpochs = maxEpochs
-        self.is_setup = False
+        if type(input_shape) == int:
+            self.input_shape = [input_shape,]
+        else: # Multi-dimensional input, e.g. image
+            self.input_shape = input_shape
 
-        # Training variables, to allow interrupting and resuming training.
-        self.learning_rate = learning_rate
-        self.t = 1
+        self.n_output_nodes = n_output_nodes
+        self.layers = []
+        self.is_setup = False
+        self.optimizer = None
+        self.verbose = verbose
 
         # Loss 
         if loss == "cross_entropy":
@@ -28,6 +30,8 @@ class NeuralNetwork():
             activation_class = ReLU
         elif activation == "softmax":
             activation_class = Softmax
+        elif activation == "none":
+            activation_class = None
         else:
             raise Exception("Unknown activation function.")
 
@@ -44,12 +48,14 @@ class NeuralNetwork():
             layer = DenseLayer(self.layers[-1].output_shape[0], n_nodes)
         
         self.layers.append(layer)
-        self.layers.append(activation_class(layer.output_shape))
+
+        if activation_class != None:
+            self.layers.append(activation_class(layer.output_shape))
         if dropout:
             self.layers.append(Dropout([n_nodes,], dropout_rate=dropout_rate))
 
 
-    def add_convolution_layer(self, n_filters, filter_size=3, stride=1, activation="relu"):
+    def add_convolutional_layer(self, n_filters, filter_size=3, stride=1, activation="relu"):
         if activation == "relu":
             activation_class = ReLU
         else: # Only relu supported at the moment
@@ -76,9 +82,11 @@ class NeuralNetwork():
         layer = Flatten(input_shape)
         self.layers.append(layer)
 
-    def setup(self):
+    def setup(self, output_activation="softmax"):
+        # Add output layer
+        self.add_dense_layer(self.n_output_nodes, activation = output_activation)
+
         # Complete the "linked list" structure of layers
-        self.add_dense_layer(self.n_classes, activation = "softmax") # Add output layer
         for i in range(1, len(self.layers)-1):
             l = self.layers[i]
             l.prev_layer = self.layers[i-1]
@@ -89,7 +97,25 @@ class NeuralNetwork():
 
         self.is_setup = True
 
-    def fit(self, X, y, batch_size=32, verbose=True):
+    def compile(self, optimizer="sgd", batch_size=32, max_epochs=10, learning_rate=1e-2):
+        if not self.is_setup:
+            self.setup()
+        
+        if optimizer == "sgd":
+            self.optimizer = SGD(
+                batch_size = batch_size, 
+                max_epochs = max_epochs,
+                learning_rate = learning_rate
+            )
+            
+        elif isinstance(optimizer, Optimizer):
+            self.optimizer = optimizer
+
+        else:
+            raise ValueError('Specified optimizer not recognized.')
+
+
+    def fit(self, X, y, batch_size=32):
         if len(X.shape) == 2: # Data is on matrix format
             n,d = X.shape
         elif len(X.shape) == 4: # Data is on image format
@@ -97,36 +123,7 @@ class NeuralNetwork():
         else:
             raise Exception("Unknown input dimension")
 
-        if not self.is_setup:
-            self.setup()
-
-        # Train network, currently only using simple batch based stochastic gradient descent
-        for epoch in range(self.maxEpochs):
-            print("Epoch number", epoch)
-            mean_loss = 0
-
-            idx = np.random.permutation(n) # Index to shuffle X and y
-            X_shuffled = X[idx]
-            y_shuffled = y[idx]
-            for i in range(0, n, batch_size):
-                # Forward pass
-                self.layers[0].forward(X_shuffled[i:i+batch_size])
-                yhat = self.layers[-1].output
-                mean_loss += self.loss(yhat, y_shuffled[i:i+batch_size])*batch_size/n
-
-                # Backwards pass
-                self.layers[-1].backward(self.loss_derivative(yhat,y_shuffled[i:i+batch_size]))
-
-                # Gradient descent
-                for l in self.layers:
-                    layer_type = l.__class__.__name__
-                    if (layer_type == "DenseLayer") or (layer_type == "ConvolutionalLayer"):
-                        l.W -= self.learning_rate*l.dW/np.sqrt(self.t)
-                        l.b -= self.learning_rate*l.db/np.sqrt(self.t)
-                        self.t += 1
-            if verbose:
-                print("Mean loss during epoch: ",mean_loss)
-                print("Effective learning rate: ", self.learning_rate/np.sqrt(self.t))
+        self.optimizer.train(self, X, y, verbose=self.verbose)
     
     def predict(self, X):
         # Set dropout layers to predict-mode
