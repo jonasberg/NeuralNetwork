@@ -1,8 +1,19 @@
 
 import numpy as np
 
-# Base class showing what must be implemented for all layers
 class Layer():
+    '''
+    Base class specifying the common attributes and methods for layers. 
+    
+    It serves both as an interface when implementing new layers, but also what 
+    attributes can be accessed when interacting with layers in an application.
+
+    Attributes:
+        prev_layer (layer): A reference to the previous layer in the network
+        next_layer (layer): A reference to the next layer in the network
+        output_shape (tuple): A tuple of integers specifying the shape the output
+        output (ndarray): A ndarray resulting from a forward pass of the layer
+    '''
     def __init__(self):
         # Allowing for a linked list type of structure for the network
         self.prev_layer = None
@@ -15,25 +26,90 @@ class Layer():
         self.output = None
 
     def forward(self, X):
+        '''
+        Performs a forward pass, using X as input.
+
+        Will also attempt to call forward on the next_layer with the output of
+        the layer as input argument, if next_layer is not None.
+
+        Args:
+            X (ndarray): An ndarray with input data
+
+        Returns:
+            None
+        '''
         pass
 
     def backward(self, output_derivative):
+        '''
+        Performs a backward pass.
+
+        Will also attempt to call backward on the prev_layer with the 
+        derivative with respect to the input of the layer as argument, in case
+        prev_layer is not None.
+
+        Args:
+            output_derivative (ndarray): 
+                An ndarray with the derivative of the loss function with 
+                respect to the output of the current layer (elementwise)
+
+        Returns:
+            None
+        '''
         pass
 
     def __str__(self):
+        '''
+        A string giving a description of the layer.
+
+        To enable a structured string representation of a whole network, this
+        string should follow the following structure:
+
+        30 characters: String specifying layer type
+        20 characters: String specifying the input shape expected by the layer
+        20 characters: String specifying the output shape of the layer 
+        10 characters: String specifying the # of trainable parameters
+        
+        These should be left aligned. This can be achieved by using format
+        with the following template:
+
+        "{:<30}{:<20}{:<20}{:<10}".format(...)
+        '''
         pass
 
-# Subclass specifying the derivatives with respect to weights and biases
-# of computational layers.
 class ComputationalLayer(Layer):
+    '''
+    Subclass used for computational layers, e.g. dense or convolutional layers.
+
+    This is to allow for easy filtering out relevant layers when updating 
+    weights during optimization.
+
+    Attributes:
+        W (ndarray): Contains the layer weights
+        b (ndarray): Contains the layer biases
+        dW (ndarray): The derivative with respect to each weight in W
+        db (ndarray): The derivative with respect to each bias in b
+    '''
     def __init__(self):
         super().__init__()
 
+        self.W = None
+        self.b = None
         self.dW = None
         self.db = None
 
 # -------------------------------- Computational layers ------------------------
 class DenseLayer(ComputationalLayer):
+    '''
+    A fully connected neural network layer.
+
+    The most basic building block for neural networks. Each input node is 
+    connected to each output node. 
+
+    Args:
+        in_features (int): The number of input nodes
+        n_nodes (int): The number of nodes in the layer (output nodes)
+    '''
     def __init__(self, in_features, n_nodes):
         super().__init__()
 
@@ -41,13 +117,14 @@ class DenseLayer(ComputationalLayer):
         self.n_nodes = n_nodes
         self.output_shape = [n_nodes,]
 
-        # See https://towardsdatascience.com/weight-initialization-in-neural-networks-a-journey-from-the-basics-to-kaiming-954fb9b47c79
-        # for explaination of initialization scheme of weights.
+        # Using Kaiming initialization.
+        # See article below for an excelent summary of why this is a good idea.
+        # https://towardsdatascience.com/weight-initialization-in-neural-networks-a-journey-from-the-basics-to-kaiming-954fb9b47c79
         self.W = np.random.normal(size=(in_features, n_nodes))*np.sqrt(2/in_features) 
         self.b = np.zeros((1, n_nodes))
 
     def forward(self, X):
-        # Save input if first layer
+        # Save input if first layer, needed for backpropagation.
         if self.prev_layer == None:
             self.input = X
 
@@ -80,7 +157,23 @@ class DenseLayer(ComputationalLayer):
         )
 
 class ConvolutionalLayer(ComputationalLayer): 
-    # Implementation is based on: https://towardsdatascience.com/convolutional-neural-networks-from-the-ground-up-c67bb41454e1
+    '''
+    A convolutional neural network layer.
+
+    Performs a convolution between the weight matrix (filter) of each node and 
+    the input data in the forward pass, yielding an activation map for each 
+    node. These activation maps are stacked to form the output.
+
+    Implementation is based on Alejandro Escontrela's Medium article:
+    https://towardsdatascience.com/convolutional-neural-networks-from-the-ground-up-c67bb41454e1
+
+    Args:
+        n_filters (int): The number of nodes / filters in the layer
+        filter_size (int): The size of the filters; typically 3.
+        stride (int): The stride used in the convolution
+        input_shape (tuple): The shape of a single input observation, must be
+            3-dimensional and follow the convention: (channels, height, width).
+    '''
 
     def __init__(self, n_filters, filter_size=3, stride=1, input_shape=(1,28,28)): # in_shape, 
         super().__init__()
@@ -205,6 +298,15 @@ class ConvolutionalLayer(ComputationalLayer):
 
 # -------------------------------- Activations ---------------------------------
 class ReLU(Layer):
+    '''
+    Applies ReLU activation elementwise to the input data.
+
+    ReLU activation is defined as f(x) = max(0, x).
+
+    Args:
+        output_shape (tuple): Specifying the output dimension of the layer. Same
+            as the output of the previous layer.
+    '''
     def __init__(self, output_shape):
         super().__init__()
         self.output_shape = output_shape
@@ -233,7 +335,18 @@ class ReLU(Layer):
         )
 
 class Softmax(Layer):
-    # Mathematical derivation found at: https://aimatters.wordpress.com/2019/06/17/the-softmax-function-derivative/
+    '''
+    Applies Softmax activation to the input data.
+
+    For explaination of the matematics of this activation, see Stephen Oman's
+    article on the topic: 
+    https://aimatters.wordpress.com/2019/06/17/the-softmax-function-derivative/
+
+    Args:
+        output_shape (tuple): Specifying the output dimension of the layer. Same
+            as the output of the previous layer.
+    '''
+
     def __init__(self, output_shape):
         super().__init__()
         self.output_shape = output_shape
@@ -246,6 +359,7 @@ class Softmax(Layer):
         row_max = np.max(X, axis=1).reshape(n,1)
         log_term = np.log(np.sum(np.exp(X-row_max),axis=1)).reshape(n,1)
         log_cross_entropy = X - row_max - log_term
+
         self.output = np.exp(log_cross_entropy)
 
         if self.next_layer != None:
@@ -277,8 +391,21 @@ class Softmax(Layer):
 # ------------------------------------------------------------------------------
 
 # -------------------------------- Other layers --------------------------------
-
 class Dropout(Layer):
+    '''
+    Randomly sets a fraction of the input values to 0 to reduce overfitting.
+
+    Effectively turns the network into an ensemble model of smaller networks,
+    by training subsets of nodes separately. The final prediction then becomes
+    an average of all these individual networks. Thus the capacity of the 
+    architecture can be increased with reduced risk of overfitting.
+
+    Args:
+        output_shape (tuple): Specifying the output dimension of the layer. Same
+            as the output of the previous layer.
+        dropout_rate (float): The fraction of nodes that should be deactivated.
+            If 0, the layer does nothing. If 1, all output values will be 0.
+    '''
     def __init__(self, output_shape, dropout_rate=0.5):
         super().__init__()
         
@@ -321,6 +448,15 @@ class Dropout(Layer):
         )
 
 class Flatten(Layer):
+    '''
+    Flattens the input into a one dimensional object.
+
+    Commonly used to convert the output from a convolutional layer into valid
+    input to a dense layer.
+
+    Args:
+        input_shape (tuple): Shape of the input.
+    '''
     def __init__(self, input_shape):
         super().__init__()
 
