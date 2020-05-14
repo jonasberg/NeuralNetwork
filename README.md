@@ -6,10 +6,7 @@ This is a project written for the purpose of learning the mathematical details o
 
 * **NeuralNetork.py** - contains the `NeuralNetwork` class, which controls adding layers, training, making predictions etc. 
 
-*  **NeuralNetworkLayers.py** - contains the layers that can be added to the network, e.g. dense, convolutional, dropout, activations and so forth. These are usually added by invoking methods  of `NeuralNetwork` objects, but one can look at this file to get a deeper understanding of how they work. 
-
-  Also contains test cases to numerically check that the derivatives of the classes `DenseLayer` and `ConvolutionalLayer` are correct.
-
+*  **NeuralNetworkLayers.py** - contains the layers that can be added to the network, e.g. dense, convolutional, dropout, activations and so forth. These are usually added by invoking methods  of `NeuralNetwork` objects, but one can look at this file to get a deeper understanding of how they work. Also contains test cases to numerically check that the derivatives of the classes `DenseLayer` and `ConvolutionalLayer` are correct.
 * **NeuralNetworkOptimizers.py**  - contains optimizers to train the network. Currently, only stochastic gradient descent is implemented, but stochastic gradient descent with momentum is in the workings.
 
 ## Known issues / Further improvements
