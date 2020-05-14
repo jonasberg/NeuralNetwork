@@ -17,5 +17,5 @@ This is a project written for the purpose of learning the mathematical details o
 
 **Issues**
 
-* Testing the network on one dimensional functions (e.g. $sin(x)+x, \ x \in \mathbb{R}$) indicate that the biases of the dense network layers are updating slowly, leading to poor approximation of non-linear functions. This is obviously a large issue (since then the networks will always simply perform linear or logistic regression), which should be investigated further.
+* Testing the network on one dimensional functions (e.g. ![equation](https://latex.codecogs.com/gif.latex?sin(x)+x,\%20\%20x\in\mathbb{R})) indicate that the biases of the dense network layers are updating slowly, leading to poor approximation of non-linear functions. This is obviously a large issue (since then the networks will always simply perform linear or logistic regression), which should be investigated further.
 
