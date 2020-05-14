@@ -9,8 +9,8 @@ class Layer():
     attributes can be accessed when interacting with layers in an application.
 
     Attributes:
-        prev_layer (layer): A reference to the previous layer in the network
-        next_layer (layer): A reference to the next layer in the network
+        prev_layer (Layer): A reference to the previous layer in the network
+        next_layer (Layer): A reference to the next layer in the network
         output_shape (tuple): A tuple of integers specifying the shape the output
         output (ndarray): A ndarray resulting from a forward pass of the layer
     '''

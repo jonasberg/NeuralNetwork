@@ -1,18 +1,45 @@
 import numpy as np
 from NeuralNetworkLayers import ComputationalLayer
 
-# Base class for typechecking purposes
 class Optimizer():
+    ''' Base class for typechecking purposes. '''
     pass
 
 class SGD(Optimizer):
-    def __init__(self, learning_rate=1e-2, batch_size=64, max_epochs=200):
+    '''
+    A stochastic gradient descent optimizer.
+
+    Supports the use of batches and uses an adaptive step size scheme, in
+    that the step size is inversely proportional to the number of iterations
+    during training.
+
+    Todo:
+        * Currenly does not check for whether convergence has been obtained.
+
+    Args:
+        learning_rate (float): The initial learning rate used during training
+        batch_size (int): The number of observations in each batch
+        max_epochs (int): The maximal number of epochs over which to train the 
+            network.
+
+    '''
+    def __init__(self, learning_rate=1e-2, batch_size=64, max_epochs=20):
         self.t = 1
         self.alpha = learning_rate
         self.batch_size = batch_size
         self.max_epochs = max_epochs
 
     def train(self, net, X, y, verbose=True):
+        '''
+        Trains a neural network.
+
+        Args:
+            net (NeuralNetwork): Network to train
+            X (ndarray): Training data with which to train the network
+            y (ndarray): Labels / values for each observation in X
+            verbose (bool): Whether to print information about the training 
+                progress or not.
+        '''
         n = len(X)
 
         for epoch in range(self.max_epochs):
@@ -40,12 +67,16 @@ class SGD(Optimizer):
                     if isinstance(l, ComputationalLayer):
                         l.W -= self.alpha*l.dW/np.sqrt(self.t)
                         l.b -= self.alpha*l.db/np.sqrt(self.t)
-                        self.t += 1
+
+                self.t += 1
             if verbose:
                 print("Mean loss during epoch: ",mean_loss)
                 print("Effective learning rate: ", self.alpha/np.sqrt(self.t))
 
 class MomentumSGD(Optimizer):
+    '''
+    Still a work in progress.
+    '''
     def __init__(self, beta=0.9, learning_rate=1e-2, batch_size=64, max_epochs=200):
         self.t = 1
         self.beta = beta
