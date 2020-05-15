@@ -22,8 +22,10 @@ class SGD(Optimizer):
         max_epochs (int): The maximal number of epochs over which to train the 
             network.
 
+    Attributes:
+        t (int): The number of iterations performed during training.
     '''
-    def __init__(self, learning_rate=1e-2, batch_size=64, max_epochs=20):
+    def __init__(self, learning_rate=1e-2, batch_size=64, max_epochs=50):
         self.t = 1
         self.alpha = learning_rate
         self.batch_size = batch_size
@@ -75,10 +77,28 @@ class SGD(Optimizer):
 
 class MomentumSGD(Optimizer):
     '''
-    Still a work in progress.
+    A stochastic gradient descent optimizer, with momentum.
+
+    At each iteration, each step is a linear combination of the previous step
+    and a step in the new gradient direction.
+
+    Implementation is still a work in progress.
+
+    Args:
+        beta (float): Value between 0 and 1 determining how weight should be 
+            given to the previous step direction
+        learning_rate (float): The initial learning rate used during training
+        batch_size (int): The number of observations in each batch
+        max_epochs (int): The maximal number of epochs over which to train the 
+            network
+
+    Attributes:
+        Vw (list): A list of the weight updates made during the previous step 
+            of the training
+        Vb (list): A list of the bias updates made during the previous step of
+            the training
     '''
-    def __init__(self, beta=0.9, learning_rate=1e-2, batch_size=64, max_epochs=200):
-        self.t = 1
+    def __init__(self, beta=0.8, learning_rate=1e-2, batch_size=64, max_epochs=50):
         self.beta = beta
         self.alpha = learning_rate
         self.batch_size = batch_size
@@ -88,6 +108,16 @@ class MomentumSGD(Optimizer):
         self.Vb = None # Last update of biases
 
     def train(self, net, X, y, verbose=True):
+        '''
+        Trains a neural network.
+
+        Args:
+            net (NeuralNetwork): Network to train
+            X (ndarray): Training data with which to train the network
+            y (ndarray): Labels / values for each observation in X
+            verbose (bool): Whether to print information about the training 
+                progress or not.
+        '''
         n = len(X)
 
         for epoch in range(self.max_epochs):
@@ -95,15 +125,15 @@ class MomentumSGD(Optimizer):
                 print("Epoch number", epoch)
             mean_loss = 0
 
-            idx = np.arange(n)#np.random.permutation(n) # Index to shuffle X and y
+            idx = np.random.permutation(n) # Index to shuffle X and y
             X_shuffled = X[idx]
             y_shuffled = y[idx]
             for i in range(0, n, self.batch_size):
                 X_batch = X_shuffled[i:i+self.batch_size]
                 y_batch = y_shuffled[i:i+self.batch_size]
+
                 # Forward pass
                 net.layers[0].forward(X_batch)
-
                 y_hat = net.layers[-1].output
                 mean_loss += net.loss(y_hat, y_batch)*self.batch_size/n
                 
@@ -127,12 +157,10 @@ class MomentumSGD(Optimizer):
                     self.Vw[i] = Vw_new
                     self.Vb[i] = Vb_new
 
-                    l.W -= Vw_new/np.sqrt(self.t)
-                    l.b -= Vb_new#/np.sqrt(self.t)
+                    l.W -= Vw_new
+                    l.b -= Vb_new
 
-                    self.t += 1
             if verbose:
                 print("Mean loss during epoch: ",mean_loss)
-                #print("Effective learning rate: ", self.alpha/np.sqrt(self.t))
 
 
