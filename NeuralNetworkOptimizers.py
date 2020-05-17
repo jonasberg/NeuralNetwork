@@ -77,15 +77,16 @@ class SGD(Optimizer):
                 if int(20*batch/n) > progress and verbose:
                     progress = int(20*batch/n)
                     print(
+                        "\r"+ # Carriage return, to overwrite previous
                         "["+
                         "="*(progress-1)+ 
                         ">" + 
                         "."*(20-progress)+
                         "] {}% of epoch.".format(5*progress)
-                    , end="\r")
+                    , end="")
 
             if verbose:
-                print("Mean loss during epoch: ",mean_loss)
+                print("\rMean loss during epoch: ",mean_loss)
                 print("Effective learning rate: ", self.alpha/np.sqrt(self.t))
 
 class MomentumSGD(Optimizer):
@@ -178,14 +179,15 @@ class MomentumSGD(Optimizer):
                 if int(20*batch/n) > progress and verbose:
                     progress = int(20*batch/n)
                     print(
+                        "\r"+ # Carriage return, to overwrite previous
                         "["+
                         "="*(progress-1)+ 
                         ">" + 
                         "."*(20-progress)+
                         "] {}% of epoch.".format(5*progress)
-                    , end="\r")
+                    , end="")
 
             if verbose:
-                print("Mean loss during epoch: ",mean_loss)
+                print("\rMean loss during epoch: ",mean_loss)
 
 
