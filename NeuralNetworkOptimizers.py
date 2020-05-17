@@ -46,15 +46,16 @@ class SGD(Optimizer):
 
         for epoch in range(self.max_epochs):
             if verbose: 
-                print("Epoch number", epoch)
+                print("Epoch number {} / {}".format(epoch, self.max_epochs))
             mean_loss = 0
 
             idx = np.random.permutation(n) # Index to shuffle X and y
             X_shuffled = X[idx]
             y_shuffled = y[idx]
-            for i in range(0, n, self.batch_size):
-                X_batch = X_shuffled[i:i+self.batch_size]
-                y_batch = y_shuffled[i:i+self.batch_size]
+            progress = 0
+            for batch in range(0, n, self.batch_size):
+                X_batch = X_shuffled[batch:batch+self.batch_size]
+                y_batch = y_shuffled[batch:batch+self.batch_size]
                 # Forward pass
                 net.layers[0].forward(X_batch)
 
@@ -71,6 +72,18 @@ class SGD(Optimizer):
                         l.b -= self.alpha*l.db/np.sqrt(self.t)
 
                 self.t += 1
+
+                # Track progress in increments of 5% of epoch
+                if int(20*batch/n) > progress and verbose:
+                    progress = int(20*batch/n)
+                    print(
+                        "["+
+                        "="*(progress-1)+ 
+                        ">" + 
+                        "."*(20-progress)+
+                        "] {}% of epoch.".format(5*progress)
+                    , end="\r")
+
             if verbose:
                 print("Mean loss during epoch: ",mean_loss)
                 print("Effective learning rate: ", self.alpha/np.sqrt(self.t))
@@ -122,15 +135,16 @@ class MomentumSGD(Optimizer):
 
         for epoch in range(self.max_epochs):
             if verbose: 
-                print("Epoch number", epoch)
+                print("Epoch number {} / {}".format(epoch, self.max_epochs))
             mean_loss = 0
 
             idx = np.random.permutation(n) # Index to shuffle X and y
             X_shuffled = X[idx]
             y_shuffled = y[idx]
-            for i in range(0, n, self.batch_size):
-                X_batch = X_shuffled[i:i+self.batch_size]
-                y_batch = y_shuffled[i:i+self.batch_size]
+            progress = 0
+            for batch in range(0, n, self.batch_size):
+                X_batch = X_shuffled[batch:batch+self.batch_size]
+                y_batch = y_shuffled[batch:batch+self.batch_size]
 
                 # Forward pass
                 net.layers[0].forward(X_batch)
@@ -159,6 +173,17 @@ class MomentumSGD(Optimizer):
 
                     l.W -= Vw_new
                     l.b -= Vb_new
+                
+                # Track progress in increments of 5% of epoch
+                if int(20*batch/n) > progress and verbose:
+                    progress = int(20*batch/n)
+                    print(
+                        "["+
+                        "="*(progress-1)+ 
+                        ">" + 
+                        "."*(20-progress)+
+                        "] {}% of epoch.".format(5*progress)
+                    , end="\r")
 
             if verbose:
                 print("Mean loss during epoch: ",mean_loss)
