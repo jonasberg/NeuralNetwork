@@ -9,10 +9,6 @@ class SGD(Optimizer):
     '''
     A stochastic gradient descent optimizer.
 
-    Supports the use of batches and uses an adaptive step size scheme, in
-    that the step size is inversely proportional to the number of iterations
-    during training.
-
     Todo:
         * Currenly does not check for whether convergence has been obtained.
 
@@ -21,12 +17,8 @@ class SGD(Optimizer):
         batch_size (int): The number of observations in each batch
         max_epochs (int): The maximal number of epochs over which to train the 
             network.
-
-    Attributes:
-        t (int): The number of iterations performed during training.
     '''
     def __init__(self, learning_rate=1e-2, batch_size=64, max_epochs=50):
-        self.t = 1
         self.alpha = learning_rate
         self.batch_size = batch_size
         self.max_epochs = max_epochs
@@ -56,6 +48,7 @@ class SGD(Optimizer):
             for batch in range(0, n, self.batch_size):
                 X_batch = X_shuffled[batch:batch+self.batch_size]
                 y_batch = y_shuffled[batch:batch+self.batch_size]
+                
                 # Forward pass
                 net.layers[0].forward(X_batch)
 
@@ -68,10 +61,8 @@ class SGD(Optimizer):
                 # Gradient descent
                 for l in net.layers:
                     if isinstance(l, ComputationalLayer):
-                        l.W -= self.alpha*l.dW/np.sqrt(self.t)
-                        l.b -= self.alpha*l.db/np.sqrt(self.t)
-
-                self.t += 1
+                        l.W -= self.alpha*l.dW
+                        l.b -= self.alpha*l.db
 
                 # Track progress in increments of 5% of epoch
                 if int(20*batch/n) > progress and verbose:
@@ -87,7 +78,6 @@ class SGD(Optimizer):
 
             if verbose:
                 print("\rMean loss during epoch: ",mean_loss)
-                print("Effective learning rate: ", self.alpha/np.sqrt(self.t))
 
 class MomentumSGD(Optimizer):
     '''
